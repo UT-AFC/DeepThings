@@ -146,14 +146,17 @@ void deepthings_merge_result_thread_single_device(void *arg){
 
 void transfer_data(device_ctxt* client, device_ctxt* gateway){
    int32_t cli_id = client->this_cli_id;
+   uint32_t frame_num;
    while(1){
       blob* temp = dequeue(client->result_queue);
       printf("Transfering data from client %d to gateway\n", cli_id);
       enqueue(gateway->results_pool[cli_id], temp);
       gateway->results_counter[cli_id]++;
+      frame_num = get_blob_frame_seq(temp);
       free_blob(temp);
       if(gateway->results_counter[cli_id] == gateway->batch_size){
          temp = new_empty_blob(cli_id);
+	 annotate_blob(temp, cli_id, frame_num, 0);
          enqueue(gateway->ready_pool, temp);
          free_blob(temp);
          gateway->results_counter[cli_id] = 0;
