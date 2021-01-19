@@ -64,6 +64,15 @@ void partition_frame_and_perform_inference_thread_single_device(void *arg){
 
       /*Load image and partition, fill task queues*/
       load_image_as_model_input(model, frame_num);
+      
+      // TODO: Add ready pool empty blob
+      //
+      printf("Sending first ready blob\n");
+      temp = new_empty_blob(0);
+      annotate_blob(temp, 0, 1, 0);
+      enqueue(ctxt->result_queue, temp);
+      free_blob(temp);
+
       partition_and_enqueue(ctxt, frame_num);
       /*register_client(ctxt);*/
 
@@ -100,7 +109,6 @@ void partition_frame_and_perform_inference_thread_single_device(void *arg){
          process_task_single_device(ctxt, temp, data_ready);
          free_blob(temp);
       }
-
       /*Unregister and prepare for next image*/
       /*cancel_client(ctxt);*/
    }
@@ -108,6 +116,14 @@ void partition_frame_and_perform_inference_thread_single_device(void *arg){
    pthreadpool_destroy(model->net->threadpool);
    nnp_deinitialize();
 #endif
+   // TODO: Add a negative number to the ready queue
+   temp = new_empty_blob(0);
+   annotate_blob(temp, 0, -1, 0);
+   enqueue(ctxt->result_queue, temp);
+   free_blob(temp);
+
+   printf("\n\nHUZZAH!!\nThe frame partitioner has completed its duties\n\n");
+   
 }
 
 void deepthings_merge_result_thread_single_device(void *arg){
@@ -145,8 +161,77 @@ void deepthings_merge_result_thread_single_device(void *arg){
 }
 
 void transfer_data(device_ctxt* client, device_ctxt* gateway){
+   
    int32_t cli_id = client->this_cli_id;
-   uint32_t frame_num;
+   int32_t frame_num;
+
+   // attempting to use the client ready pool to signal when I can dequeue results 
+   // to transfer and then exit gracefully
+   //cnn_model* model = (cnn_model*)(client->model);
+   
+   printf("waiting on the ready queue\n");
+   blob* temp = dequeue(client->result_queue);
+
+#if DEBUG_FLAG
+   printf("Check ready_pool... : Client %d is ready, merging the results\n", temp->id);
+#endif
+   
+   frame_num = get_blob_frame_seq(temp);
+   free_blob(temp);
+ 
+   // the partitioner has something they wish to say
+   //ftp_parameters *ftp_para = model->ftp_para;
+
+   if(frame_num > 0){
+   
+
+   while(1){
+      //task = get_blob_task_id(temp);
+      //if(frame_num == get_blob_frame_seq(temp))
+      //part++;
+      
+      temp = dequeue(client->result_queue);
+      
+      printf("My Transfering data from client %d to gateway\n", cli_id);
+      enqueue(gateway->results_pool[cli_id], temp);
+      gateway->results_counter[cli_id]++;
+      frame_num = get_blob_frame_seq(temp);
+      free_blob(temp);
+      if(gateway->results_counter[cli_id] < gateway->batch_size) continue;
+      gateway->results_counter[cli_id] = 0; 
+      
+      printf("One sequence completed\n");
+      
+      temp = new_empty_blob(cli_id);
+      annotate_blob(temp, cli_id, frame_num, 0);
+      enqueue(gateway->ready_pool, temp);
+      free_blob(temp);
+
+      temp = dequeue(client->result_queue);
+      
+      frame_num = get_blob_frame_seq(temp);
+      free_blob(temp);
+
+      if(frame_num >= 0){
+      	continue;
+      } else {
+      	break;
+      }
+      /*
+      else {
+	   enqueue(ctxt->results_pool[cli_id], temp);
+	   free_blob(temp);
+	   continue;
+	}
+      */
+     }
+   }
+
+   printf("\n\nHUZZAH! Transfer Data Has Completed!\n");
+
+
+   /* 
+   // end of modification
    while(1){
       blob* temp = dequeue(client->result_queue);
       printf("Transfering data from client %d to gateway\n", cli_id);
@@ -162,6 +247,7 @@ void transfer_data(device_ctxt* client, device_ctxt* gateway){
          gateway->results_counter[cli_id] = 0;
       }
    }
+   */
 }
 
 void transfer_data_with_number(device_ctxt* client, device_ctxt* gateway, int32_t task_num){

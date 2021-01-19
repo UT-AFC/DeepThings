@@ -23,7 +23,7 @@ int main(int argc, char **argv){
                                      partition_frame_and_perform_inference_thread_single_device, client_ctxt, 0, 0);
    sys_thread_t t2 = sys_thread_new("deepthings_merge_result_thread_single_device", deepthings_merge_result_thread_single_device, gateway_ctxt, 0, 0);
    transfer_data(client_ctxt, gateway_ctxt);
-   printf("Finishd Transfering Data\n"); 
+   printf("Finished Transfering Data\n"); 
    sys_thread_join(t1);
    sys_thread_join(t2);
     
