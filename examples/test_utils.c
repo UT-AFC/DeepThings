@@ -65,16 +65,15 @@ void partition_frame_and_perform_inference_thread_single_device(void *arg){
       /*Load image and partition, fill task queues*/
       load_image_as_model_input(model, frame_num);
       
-      // TODO: Add ready pool empty blob
-      //
-      printf("Sending first ready blob\n");
+      /* the client thread sends a blob in the results queue, informing the transfer_data function
+	  that there is information to send. */
       temp = new_empty_blob(0);
       annotate_blob(temp, 0, 1, 0);
       enqueue(ctxt->result_queue, temp);
       free_blob(temp);
 
       partition_and_enqueue(ctxt, frame_num);
-      /*register_client(ctxt);*/
+	  /*register_client(ctxt);*/
 
       /*Dequeue and process task*/
       while(1){
@@ -116,13 +115,15 @@ void partition_frame_and_perform_inference_thread_single_device(void *arg){
    pthreadpool_destroy(model->net->threadpool);
    nnp_deinitialize();
 #endif
-   // TODO: Add a negative number to the ready queue
+
+   /* Signal to transfer data that there is no more tasks and therefore no more infomration
+	* effectively killing transfer_data */
    temp = new_empty_blob(0);
    annotate_blob(temp, 0, -1, 0);
    enqueue(ctxt->result_queue, temp);
    free_blob(temp);
 
-   printf("\n\nHUZZAH!!\nThe frame partitioner has completed its duties\n\n");
+   printf("\nPartitioning and inference thread completed\n");
    
 }
 
@@ -161,77 +162,76 @@ void deepthings_merge_result_thread_single_device(void *arg){
 }
 
 void transfer_data(device_ctxt* client, device_ctxt* gateway){
+   /* This function is the pipe from the client module to the gateway module.
+    * In the test, these two are on the same device, so communication is simulated
+    * by taking information from the client's 'result_queue' and copying it to the 
+    * 'ready_pool' of the gateway. */
+
+   int32_t cli_id = client->this_cli_id;
+   int32_t frame_num;
+   
+   blob* temp = dequeue(client->result_queue);
+#if DEBUG_FLAG
+   printf("Checking with client... : Client %d is ready, begin transferring data\n", temp->id);
+#endif
+   frame_num = get_blob_frame_seq(temp);
+   free_blob(temp);
+
+   if(frame_num < 0){
+#if DEBUG_FLAG
+   	printf("There is not any data to transfer at this time\n");
+#endif 
+   } else {  
+       while(1) {
+	      /* obtain one partition from the client */
+	      temp = dequeue(client->result_queue);
+	      
+	      printf("Transferring data from client %d to gateway\n", cli_id);
+	      enqueue(gateway->results_pool[cli_id], temp);
+	      gateway->results_counter[cli_id]++;
+	      frame_num = get_blob_frame_seq(temp);
+	      free_blob(temp);
+
+	      if(gateway->results_counter[cli_id] < gateway->batch_size) continue; 
+		  
+		  /* here, the client has sent a full batch of one image to the gateway.
+		   * the transfer data function now resets, informs the gateway it may 
+		   * continue via sending a blob to the 'ready_pool', and waits for the 
+		   * client to send a message of whether to continue or to exit */
+
+		  /* resetting */
+	      gateway->results_counter[cli_id] = 0; 
+	      
+		  /* informing gateway all information is present */
+	      temp = new_empty_blob(cli_id);
+	      annotate_blob(temp, cli_id, frame_num, 0);
+	      enqueue(gateway->ready_pool, temp);
+	      free_blob(temp);
+
+		  /* waiting for the client to signal to continue (via the frame number) */
+	      temp = dequeue(client->result_queue);
+	      frame_num = get_blob_frame_seq(temp);
+	      free_blob(temp);
+
+	      /* determine if the client has an additional task that it plans to send */
+		  if(frame_num >= 0){
+				continue;
+		  } else {
+		    /* the client has signaled that it has no more information to transmit
+			 * to the gateway. Exit the loop. */
+			break;
+	      }
+	   }
+   }
+
+}
+
+/* Deprecated */
+void transfer_data_continuous(device_ctxt* client, device_ctxt* gateway){
    
    int32_t cli_id = client->this_cli_id;
    int32_t frame_num;
-
-   // attempting to use the client ready pool to signal when I can dequeue results 
-   // to transfer and then exit gracefully
-   //cnn_model* model = (cnn_model*)(client->model);
    
-   printf("waiting on the ready queue\n");
-   blob* temp = dequeue(client->result_queue);
-
-#if DEBUG_FLAG
-   printf("Check ready_pool... : Client %d is ready, merging the results\n", temp->id);
-#endif
-   
-   frame_num = get_blob_frame_seq(temp);
-   free_blob(temp);
- 
-   // the partitioner has something they wish to say
-   //ftp_parameters *ftp_para = model->ftp_para;
-
-   if(frame_num > 0){
-   
-
-   while(1){
-      //task = get_blob_task_id(temp);
-      //if(frame_num == get_blob_frame_seq(temp))
-      //part++;
-      
-      temp = dequeue(client->result_queue);
-      
-      printf("My Transfering data from client %d to gateway\n", cli_id);
-      enqueue(gateway->results_pool[cli_id], temp);
-      gateway->results_counter[cli_id]++;
-      frame_num = get_blob_frame_seq(temp);
-      free_blob(temp);
-      if(gateway->results_counter[cli_id] < gateway->batch_size) continue;
-      gateway->results_counter[cli_id] = 0; 
-      
-      printf("One sequence completed\n");
-      
-      temp = new_empty_blob(cli_id);
-      annotate_blob(temp, cli_id, frame_num, 0);
-      enqueue(gateway->ready_pool, temp);
-      free_blob(temp);
-
-      temp = dequeue(client->result_queue);
-      
-      frame_num = get_blob_frame_seq(temp);
-      free_blob(temp);
-
-      if(frame_num >= 0){
-      	continue;
-      } else {
-      	break;
-      }
-      /*
-      else {
-	   enqueue(ctxt->results_pool[cli_id], temp);
-	   free_blob(temp);
-	   continue;
-	}
-      */
-     }
-   }
-
-   printf("\n\nHUZZAH! Transfer Data Has Completed!\n");
-
-
-   /* 
-   // end of modification
    while(1){
       blob* temp = dequeue(client->result_queue);
       printf("Transfering data from client %d to gateway\n", cli_id);
@@ -247,7 +247,7 @@ void transfer_data(device_ctxt* client, device_ctxt* gateway){
          gateway->results_counter[cli_id] = 0;
       }
    }
-   */
+
 }
 
 void transfer_data_with_number(device_ctxt* client, device_ctxt* gateway, int32_t task_num){
