@@ -21,12 +21,12 @@
 
 /*Print timing and communication size information*/
 #define DEBUG_TIMING 1
-#define DEBUG_COMMU_SIZE 1
+#define DEBUG_COMMU_SIZE 0
 
 /*Configuration parameters for DistrIoT*/
 #define GATEWAY_PUBLIC_ADDR "10.157.89.51"
 #define GATEWAY_LOCAL_ADDR "192.168.4.1"
-#define EDGE_ADDR_LIST    {"192.168.4.9", "192.168.4.8", "192.168.4.4", "192.168.4.14", "192.168.4.15", "192.168.4.16"}
+#define EDGE_ADDR_LIST    {"192.168.4.5", "192.168.4.15", "192.168.4.2", "192.168.4.9", "192.168.4.8", "192.168.4.6"}
 #define MAX_EDGE_NUM 6
 #define FRAME_NUM 4
 
