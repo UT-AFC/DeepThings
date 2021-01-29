@@ -127,7 +127,7 @@ Directory Tree<br>
 ├── obj<br>
 └── src<br>
 
-DeepThings is organized into a set of high-level function files found in the [./src](https://github.com/zoranzhao/DeepThings/blob/master/src) folder. Additional helper functions are found in [./distriot/src/](https://github.com/zoranzhao/DeepThings/blob/master/distriot/src). These include items such as code for low-level communication and FIFO queue structure and operations.
+DeepThings is organized into a set of high-level function files found in the [./src](https://github.com/UT-AFC/DeepThings/blob/master/src) folder. Additional helper functions are found in [./distriot/src/](https://github.com/UT-AFC/DeepThings/blob/master/distriot/src). These include items such as code for low-level communication and FIFO queue structure and operations.
 
 ## Porting DeepThings
 One just needs to simply modify the corresponding abstraction layer files to port DeepThings.
