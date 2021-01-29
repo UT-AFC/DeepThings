@@ -11,7 +11,7 @@ For more details of DeepThings, please refer to [1].
   <p>Overview of the DeepThings framework.</p>
 </div>
 
-This repository includes a lightweight, self-contained and portable C implementation of DeepThings. It uses a [NNPACK](https://github.com/digitalbrain79/NNPACK-darknet)-accelerated [Darknet](https://github.com/zoranzhao/darknet-nnpack) as the default inference engine. More information on porting DeepThings with different inference frameworks and platforms can be found below. 
+This repository includes a lightweight, self-contained and portable C implementation of DeepThings. It uses a [NNPACK](https://github.com/digitalbrain79/NNPACK-darknet)-accelerated [Darknet](https://github.com/UT-AFC/darknet-nnpack) as the default inference engine. More information on porting DeepThings with different inference frameworks and platforms can be found below. 
 
 ## Platforms and Prerequisites
 The current implementation has been tested on [Raspberry Pi 3 Model B](https://www.raspberrypi.org/products/raspberry-pi-3-model-b/) running [Raspbian](https://www.raspberrypi.org/downloads/raspbian/). Our network setup consisted of six edge devices and a single gateway device, although more edge devices are possible.
@@ -19,7 +19,7 @@ The current implementation has been tested on [Raspberry Pi 3 Model B](https://w
 Deepthings also runs on top of the darknet
 
 ## Compiling
-Edit the configuration file [include/configure.h](https://github.com/zoranzhao/DeepThings/blob/master/include/configure.h) according to your IoT cluster parameters. 
+Edit the configuration file [include/configure.h](https://github.com/UT-AFC/DeepThings/blob/master/include/configure.h) according to your IoT cluster parameters. 
 
 Note: If the start signal is desired to come from the gateway rather than a host machine, set GATEWAY_PUBLIC_ADDR to the local ip address of the gateway. If the start signal comes from a host machine, then set GATEWAY_PUBLIC_ADDR to the public ip address.
 
@@ -36,10 +36,10 @@ ARM_NEON=1
 ```
 
 ## Downloading pre-trained CNN models and input data
-In order to perform distributed inference, you need to download pre-trained CNN models and put it in [./models](https://github.com/zoranzhao/DeepThings/tree/master/models) folder.
-Current implementation is tested with YOLOv2, which can be downloaded from [YOLOv2 model](https://github.com/zoranzhao/DeepThings/blob/master/models/yolo.cfg) and [YOLOv2 weights](https://pjreddie.com/media/files/yolo.weights). If the link doesn't work, you can also find the weights [here](https://utexas.box.com/s/ax7f0j0qwnc4yb9ghjprjd93qwk3t4uw).
+In order to perform distributed inference, you need to download pre-trained CNN models and put it in [./models](https://github.com/UT-AFC/DeepThings/tree/master/models) folder.
+Current implementation is tested with YOLOv2, which can be downloaded from [YOLOv2 model](https://github.com/UT-AFC/DeepThings/blob/master/models/yolo.cfg) and [YOLOv2 weights](https://pjreddie.com/media/files/yolo.weights). If the link doesn't work, you can also find the weights [here](https://utexas.box.com/s/ax7f0j0qwnc4yb9ghjprjd93qwk3t4uw).
 
-For input data, images need to be numbered (starting from 0) and renamed as <#>.jpg, and placed in [./data/input](https://github.com/zoranzhao/DeepThings/tree/master/data/input) folder.
+For input data, images need to be numbered (starting from 0) and renamed as <#>.jpg, and placed in [./data/input](https://github.com/UT-AFC/DeepThings/tree/master/data/input) folder.
 
 ## Running in a IoT cluster
 An overview of DeepThings command line options is listed below:
@@ -77,7 +77,7 @@ Now all the devices will wait for a trigger signal to start. It is important to 
 If a error is experienced, it is best to exit all running instances of DeepThings on all devices (making sure none are left running in the background). Make sure the weights are loaded before restarting. Additionally, it may help to check that all configure files are the identical and remake if necessary.
 
 ## Running in a single device
-Many people want to first try the FTP-partitioned inference in a single device. Now you can find a single-device execution example in [./examples](https://github.com/zoranzhao/DeepThings/tree/master/examples) folder. To run it:
+Many people want to first try the FTP-partitioned inference in a single device. Now you can find a single-device execution example in [./examples](https://github.com/UT-AFC/DeepThings/tree/master/examples) folder. To run it:
 ```bash
 cd examples
 make clean
@@ -88,27 +88,60 @@ make
 This will first initialize a gateway context and a client context in different local threads. FTP partition inference results will be transferred between queues associated with each context to emulate the inter-device communication.
 
 ## Use of Images
-The images used in the examples are found in [./data/input/](https://github.com/zoranzhao/DeepThings/blob/master/data/input) and must be numbered sequentially starting from 0 and stored with JPEG compression. The number of images that the example will run through is determined by the FRAME_NUM variable in [./include/configure.h](https://github.com/zoranzhao/DeepThings/blob/master/include/configure.h). There are 6 example images, however these can be changed to other images by following the naming convention present. Upon completion, the labeled images will be outputted into the same folder as the executable as PNG files.
+The images used in the examples are found in [./data/input/](https://github.com/UT-AFC/DeepThings/blob/master/data/input) and must be numbered sequentially starting from 0 and stored with JPEG compression. The number of images that the example will run through is determined by the FRAME_NUM variable in [./include/configure.h](https://github.com/UT-AFC/DeepThings/blob/master/include/configure.h). There are 6 example images, however these can be changed to other images by following the naming convention present. Upon completion, the labeled images will be outputted into the same folder as the executable as PNG files.
 
 ## Data Reuse
-DeepThings also has the capability to reuse some of the data generated by each task in the queue for greater efficiency. The gateway will manage all reuse data that has been accumulated using an Overlapped Data Pool. Should an edge device (data source or non data source) receive a task from the queue to run, the edge device will request reuse data from the gateway. Should there be data available, the device will use it, or the device will proceed without the additional data. After the processed task is finished, it will send the reuse data back to the gateway. The data reuse functionality can be toggled via the DATA_REUSE flag in [.include/configuration.h](https://github.com/zoranzhao/DeepThings/blob/master/include/configure.h). The functions in the code addressing data reuse will not be compiled due to pre-processor directives, and cannot be toggled once compiled.
+DeepThings also has the capability to reuse some of the data generated by each task in the queue for greater efficiency. The gateway will manage all reuse data that has been accumulated using an Overlapped Data Pool. Should an edge device (data source or non data source) receive a task from the queue to run, the edge device will request reuse data from the gateway. Should there be data available, the device will use it, or the device will proceed without the additional data. After the processed task is finished, it will send the reuse data back to the gateway. The data reuse functionality can be toggled via the DATA_REUSE flag in [.include/configuration.h](https://github.com/UT-AFC/DeepThings/blob/master/include/configure.h). The functions in the code addressing data reuse will not be compiled due to pre-processor directives, and cannot be toggled once compiled.
 
 ## Code Structure
+Directory Tree<br>
+├── darknet-nnpack<br>
+│   ├── cfg<br>
+│   │   └── yolov1<br>
+│   ├── data<br>
+│   │   └── labels<br>
+|   ├── examples<br>
+│   ├── include<br>
+│   ├── obj<br>
+│   ├── python<br>
+│   ├── results<br>
+│   ├── scripts<br>
+│   └── src<br>
+├── data<br>
+│   ├── input<br>
+│   └── labels<br>
+├── distriot<br>
+│   ├── examples<br>
+│   ├── include<br>
+│   ├── obj<br>
+│   └── src<br>
+├── examples<br>
+│   ├── data<br>
+│   │   ├── input<br>
+│   │   └── labels<br>
+│   ├── obj<br>
+│   └── profile<br>
+│       └── data<br>
+├── include<br>
+├── models<br>
+├── obj<br>
+└── src<br>
+
 DeepThings is organized into a set of high-level function files found in the [./src](https://github.com/zoranzhao/DeepThings/blob/master/src) folder. Additional helper functions are found in [./distriot/src/](https://github.com/zoranzhao/DeepThings/blob/master/distriot/src). These include items such as code for low-level communication and FIFO queue structure and operations.
 
 ## Porting DeepThings
 One just needs to simply modify the corresponding abstraction layer files to port DeepThings.
 If you want to use a different CNN inference engine, modify: 
-- [src/inference_engine_helper.c](https://github.com/zoranzhao/DeepThings/blob/master/src/inference_engine_helper.c)
-- [src/inference_engine_helper.h](https://github.com/zoranzhao/DeepThings/blob/master/src/inference_engine_helper.h)
+- [src/inference_engine_helper.c](https://github.com/UT-AFC/DeepThings/blob/master/src/inference_engine_helper.c)
+- [src/inference_engine_helper.h](https://github.com/UT-AFC/DeepThings/blob/master/src/inference_engine_helper.h)
 
 If you want to port DeepThings onto a different OS (Currently using UNIX pthread), modify: 
-- [distriot/src/thread_util.c](https://github.com/zoranzhao/DeepThings/blob/master/distriot/src/thread_util.c)
-- [distriot/src/thread_util.h](https://github.com/zoranzhao/DeepThings/blob/master/distriot/src/thread_util.h)
+- [distriot/src/thread_util.c](https://github.com/UT-AFC/DeepThings/blob/master/distriot/src/thread_util.c)
+- [distriot/src/thread_util.h](https://github.com/UT-AFC/DeepThings/blob/master/distriot/src/thread_util.h)
 
 If you want to use DeepThings with different networking APIs (Currently using UNIX socket), modify: 
-- [distriot/src/network_util.c](https://github.com/zoranzhao/DeepThings/blob/master/distriot/src/network_util.c)
-- [distriot/src/network_util.h](https://github.com/zoranzhao/DeepThings/blob/master/distriot/src/network_util.h)
+- [distriot/src/network_util.c](https://github.com/UT-AFC/DeepThings/blob/master/distriot/src/network_util.c)
+- [distriot/src/network_util.h](https://github.com/UT-AFC/DeepThings/blob/master/distriot/src/network_util.h)
 
 
 ## References:
